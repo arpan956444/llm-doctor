@@ -1,0 +1,24 @@
+# Virtual environments
+env/
+venv/
+llm/
+
+# Python cache
+__pycache__/
+*.pyc
+
+# Logs
+logs/
+*.log
+
+# Vector DB / generated data
+vectorstore/
+data/
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.vscode/
+
+# Secrets
+.env
