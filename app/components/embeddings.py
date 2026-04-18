@@ -7,9 +7,13 @@ logger = get_logger(__name__)
 def get_embedding_model():
     try:
         logger.info("Intializing our Huggingface embedding model")
+        model_kwargs = {'device': 'cpu'}
+        encode_kwargs = {'normalize_embeddings': False}
 
         model = HuggingFaceEmbeddings(
-            model_name="sentence-transformers/all-MiniLM-L6-v2"
+            model_name="sentence-transformers/all-MiniLM-L6-v2",
+            model_kwargs=model_kwargs,
+            encode_kwargs=encode_kwargs
         )
 
         logger.info("Huggingface embedding model loaded sucesfully....")

@@ -38,8 +38,8 @@ def index():
                 error_mgs=f"Error : {str(e)}"
                 return render_template(
                     "index.html",
-                    messages=session[messages],
-                    error= error_mgs
+                    messages=session["messages"],
+                    error=error_mgs
                 )
         return redirect(url_for('index'))  #it takes imput one time
     return render_template("index.html",messages=session.get("messages",[]))
