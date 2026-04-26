@@ -2,23 +2,30 @@ import os
 import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sns
+import numpy as np
 from dotenv import load_dotenv
 from datasets import Dataset
 from bert_score import score as bert_score_func
+import transformers
+import warnings
 
-# Updated Ragas imports to avoid Deprecation Warnings
+# Suppress technical noise
+transformers.logging.set_verbosity_error()
+warnings.filterwarnings("ignore")
+os.environ["TF_CPP_MIN_LOG_LEVEL"] = "3" 
+
 from ragas import evaluate
 from ragas.metrics import faithfulness, answer_relevancy
 from ragas.llms import LangchainLLMWrapper
 from ragas.embeddings import LangchainEmbeddingsWrapper
 
-# Internal imports
 from app.components.retriever import create_qa_chain
 from app.components.llm import load_llm
 from app.components.embeddings import get_embedding_model
 
 load_dotenv()
 
+# [List truncated for brevity - keep your existing test_questions here]
 test_questions = [
     {"question": "What is normal body temperature?", "ground_truth": "Normal body temperature averages 37°C (98.6°F). It varies slightly with time of day, activity, and age, but remains tightly regulated by hypothalamic control."},
     {"question": "What is blood pressure?", "ground_truth": "Blood pressure is the force exerted by circulating blood on arterial walls, expressed as systolic over diastolic pressure, reflecting cardiac output and vascular resistance."},
@@ -89,23 +96,35 @@ def calculate_token_f1(prediction, ground_truth):
     pred_tokens = prediction.lower().split()
     gt_tokens = ground_truth.lower().split()
     common = set(pred_tokens) & set(gt_tokens)
-    if not common: return 0, 0, 0
-    prec = len(common) / len(pred_tokens) if pred_tokens else 0
-    rec = len(common) / len(gt_tokens) if gt_tokens else 0
-    f1 = 2 * (prec * rec) / (prec + rec) if (prec + rec) > 0 else 0
-    return prec, rec, f1
+    if not common: return 0.0
+    prec = len(common) / len(pred_tokens) if pred_tokens else 0.0
+    rec = len(common) / len(gt_tokens) if gt_tokens else 0.0
+    f1 = 2 * (prec * rec) / (prec + rec) if (prec + rec) > 0 else 0.0
+    return f1
+
+def get_safe_ragas_scores(rag_results):
+    """Safe extraction for Ragas 0.4.x results to handle varying API changes."""
+    try:
+        if hasattr(rag_results, "scores") and isinstance(rag_results.scores, dict):
+            return rag_results.scores
+        elif hasattr(rag_results, "to_pandas"):
+            # If scores is a list of rows, the average is the mean of the dataframe
+            return rag_results.to_pandas().mean(numeric_only=True).to_dict()
+    except Exception:
+        pass
+    # Final fallback: return empty or try to force cast
+    return getattr(rag_results, "scores", {})
 
 def run_evaluation():
     qa_chain = create_qa_chain()
     llm_obj = load_llm()
     embed_model = get_embedding_model()
 
-    # Wrapper for Ragas
     ragas_llm = LangchainLLMWrapper(llm_obj)
     ragas_emb = LangchainEmbeddingsWrapper(embed_model)
     
     results_data = []
-    print("--- Starting RAG Retrieval and BERTScore ---")
+    print("--- Starting RAG Retrieval ---")
     
     for item in test_questions:
         print(f"Testing Question: {item['question']}")
@@ -116,30 +135,31 @@ def run_evaluation():
         context = [doc.page_content for doc in source_docs]
         if not context: context = ["No context found in vectorstore"]
 
-        p, r, f1 = calculate_token_f1(answer, item["ground_truth"])
-        P_b, R_b, F1_b = bert_score_func([answer], [item["ground_truth"]], lang="en")
-
         results_data.append({
             "question": item["question"],
             "answer": answer,
             "contexts": context,
             "ground_truth": item["ground_truth"],
-            "f1": f1,
-            "bert_f1": F1_b.item()
+            "f1": calculate_token_f1(answer, item["ground_truth"])
         })
 
-    dataset_dict = {
+    # Batch BERTScore calculation (Fixes speed and repetitive logging)
+    print("\n--- Calculating BERTScores in batch ---")
+    all_answers = [r["answer"] for r in results_data]
+    all_gt = [r["ground_truth"] for r in results_data]
+    P, R, F1 = bert_score_func(all_answers, all_gt, lang="en", verbose=False)
+    
+    for i, score in enumerate(F1):
+        results_data[i]["bert_f1"] = score.item()
+
+    dataset = Dataset.from_dict({
         "question": [item["question"] for item in results_data],
         "answer": [item["answer"] for item in results_data],
         "contexts": [item["contexts"] for item in results_data],
         "ground_truth": [item["ground_truth"] for item in results_data]
-    }
-    dataset = Dataset.from_dict(dataset_dict)
+    })
     
     print("\n--- Calculating Ragas Metrics ---")
-    
-    # Note: Groq often fails on answer_relevancy because it doesn't support n > 1
-    # Faithfulness is generally safer with Groq.
     ragas_results = evaluate(
         dataset,
         metrics=[faithfulness, answer_relevancy],
@@ -147,71 +167,83 @@ def run_evaluation():
         embeddings=ragas_emb
     )
     
-    df = pd.DataFrame(results_data)
-    return df, ragas_results
+    return pd.DataFrame(results_data), ragas_results
+
+def generate_reports(df, rag_results):
+    csv_path = "evaluation_details.csv"
+    df.to_csv(csv_path, index=False)
+    print(f"\n[1/3] Detailed CSV report saved: {csv_path}")
+
+    report_path = "evaluation_summary.txt"
+    avg_f1 = df["f1"].mean()
+    avg_bert = df["bert_f1"].mean()
+    
+    avg_ragas = get_safe_ragas_scores(rag_results)
+    
+    with open(report_path, "w", encoding="utf-8") as f:
+        f.write("===========================================\n")
+        f.write("      LLM DOCTOR RAG EVALUATION REPORT      \n")
+        f.write("===========================================\n\n")
+        f.write(f"Total Samples Evaluated: {len(df)}\n")
+        f.write("-" * 43 + "\n")
+        f.write(f"Average Token F1 Score:  {avg_f1:.4f}\n")
+        f.write(f"Average BERTScore:       {avg_bert:.4f}\n")
+        
+        f.write("\n--- Ragas Metrics (High Level) ---\n")
+        for metric, val in avg_ragas.items():
+            f.write(f"{metric:20}: {float(val):.4f}\n")
+            
+        f.write("\n" + "="*43 + "\n")
+        f.write("   PERFORMANCE HIGHLIGHTS (BERTScore)\n")
+        f.write("="*43 + "\n")
+        
+        for i, (_, row) in enumerate(df.nlargest(3, "bert_f1").iterrows(), 1):
+            f.write(f"{i}. Question: {row['question']}\n   Score: {row['bert_f1']:.4f}\n\n")
+
+    print(f"[2/3] Comprehensive summary report saved: {report_path}")
 
 def plot_evaluations(df, rag_results):
-    plt.figure(figsize=(14, 6))
+    try:
+        plt.style.use('seaborn-v0_8')
+    except:
+        plt.style.use('ggplot')
 
-    # Graph 1: Token F1 vs BERTScore
-    plt.subplot(1, 2, 1)
-    # Ensure values are float for plotting
-    df["f1"] = df["f1"].astype(float)
-    df["bert_f1"] = df["bert_f1"].astype(float)
-    
-    df_melted = df.melt(id_vars="question", value_vars=["f1", "bert_f1"])
-    sns.barplot(data=df_melted, x="variable", y="value", hue="question")
-    plt.title("F1 vs BERTScore per Question")
-    plt.ylim(0, 1.1)
-    plt.ylabel("Score")
+    fig, axes = plt.subplots(1, 3, figsize=(22, 7))
+    avg_ragas = get_safe_ragas_scores(rag_results)
 
-    # Graph 2: Ragas Overall Scores
-    plt.subplot(1, 2, 2)
-    
-    metric_names = ["faithfulness", "answer_relevancy"]
-    scores = []
-    
-    # EvaluationResult object behaves like a dict but doesn't have .get()
-    # It also might return NaN if the LLM provider (Groq) doesn't support 'n' variations
-    for name in metric_names:
-        try:
-            # Access score via indexing which EvaluationResult supports
-            val = rag_results[name]
-            
-            # Handle potential array/list results or NaN
-            if isinstance(val, (list, pd.Series, pd.Index)):
-                val = val[0]
-            
-            val_float = float(val)
-            if pd.isna(val_float):
-                print(f"Warning: Metric '{name}' returned NaN. Likely due to LLM provider limitations.")
-                scores.append(0.0)
-            else:
-                scores.append(val_float)
-        except Exception as e:
-            print(f"Warning: Could not retrieve metric '{name}': {e}")
-            scores.append(0.0)
+    # Plot 1: Performance Distribution
+    sns.kdeplot(df["f1"], ax=axes[0], fill=True, label="Token F1", color="royalblue")
+    sns.kdeplot(df["bert_f1"], ax=axes[0], fill=True, label="BERTScore", color="seagreen")
+    axes[0].set_title("Performance Distribution")
+    axes[0].legend()
 
-    rag_df = pd.DataFrame({"Metric": metric_names, "Score": scores})
+    # Plot 2: Statistics
+    df_melted = df.melt(value_vars=["f1", "bert_f1"], var_name="Metric", value_name="Score")
+    sns.boxplot(data=df_melted, x="Metric", y="Score", ax=axes[1], palette="pastel")
+    axes[1].set_title("Score Statistics")
+    axes[1].set_ylim(0, 1.1)
+
+    # Plot 3: Ragas
+    m_names = [n.replace('_', ' ').title() for n in avg_ragas.keys()]
+    m_scores = [float(v) for v in avg_ragas.values()]
+    sns.barplot(x=m_names, y=m_scores, ax=axes[2], palette="viridis")
+    axes[2].set_title("Overall RAG Quality")
+    axes[2].set_ylim(0, 1.1)
     
-    sns.barplot(data=rag_df, x="Metric", y="Score", hue="Metric", palette="viridis", legend=False)
-    plt.title("Overall RAG Quality (Ragas)")
-    plt.ylim(0, 1.1)
+    for i, v in enumerate(m_scores):
+        axes[2].text(i, v + 0.02, f"{v:.3f}", ha='center', fontweight='bold')
 
     plt.tight_layout()
-    plt.savefig("full_evaluation.png")
-    print("\nSUCCESS: Graph saved as 'full_evaluation.png' in project root.")
-    plt.show()
+    plt.savefig("full_evaluation_plots.png", dpi=300)
+    print("[3/3] High-resolution plots saved: full_evaluation_plots.png")
 
 if __name__ == "__main__":
     try:
         df, rag_scores = run_evaluation()
-        print("\n--- Summary Table ---")
-        print(df[['question', 'f1', 'bert_f1']])
-        print("\n--- Ragas Overall Scores ---")
-        print(rag_scores)
+        generate_reports(df, rag_scores)
         plot_evaluations(df, rag_scores)
+        print("\n" + "="*30 + "\nPIPELINE FINISHED SUCCESSFULLY\n" + "="*30)
     except Exception as e:
-        print(f"Evaluation failed: {e}")
+        print(f"\nEvaluation failed: {e}")
         import traceback
         traceback.print_exc()

@@ -1,0 +1,25 @@
+===========================================
+      LLM DOCTOR RAG EVALUATION REPORT      
+===========================================
+
+Total Samples Evaluated: 63
+-------------------------------------------
+Average Token F1 Score:  0.3080
+Average BERTScore:       0.9012
+
+--- Ragas Metrics (High Level) ---
+faithfulness        : 0.8709
+answer_relevancy    : 0.8327
+
+===========================================
+   PERFORMANCE HIGHLIGHTS (BERTScore)
+===========================================
+1. Question: What are Calcium Channel Blockers?
+   Score: 0.9898
+
+2. Question: What is Celiac Disease?
+   Score: 0.9746
+
+3. Question: What characterizes Vitiligo?
+   Score: 0.9575
+
