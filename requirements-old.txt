@@ -1,18 +1,138 @@
-langchain==0.3.27
-langchain-community==0.3.31
-langchain_groq==0.3.8
-langchain_huggingface==0.3.1
-faiss_cpu   #facebook database
-pypdf
-huggingface_hub
-flask
-sentence-transformers==5.1.1
-python-dotenv
-bert-score 
-scikit-learn 
-matplotlib 
-seaborn 
-ragas
-evaluate
+# langchain==0.3.27
+# langchain-community==0.3.31
+# langchain_groq==0.3.8
+# langchain_huggingface==0.3.1
+# faiss_cpu   #facebook database
+# pypdf
+# huggingface_hub
+# flask
+# sentence-transformers==5.1.1
+# python-dotenv
+# bert-score 
+# scikit-learn 
+# matplotlib 
+# seaborn 
+# ragas
+# evaluate
+# datasets
+# pandas
+
+aiohappyeyeballs
+aiohttp
+aiosignal
+annotated-doc
+annotated-types
+anyio
+appdirs
+async-timeout
+attrs
+bert-score
+blinker
+certifi
+charset-normalizer
+click
+colorama
+contourpy
+cycler
+dataclasses-json
 datasets
+dill
+diskcache
+distro
+docstring_parser
+evaluate
+exceptiongroup
+faiss-cpu
+filelock
+Flask
+fonttools
+frozenlist
+fsspec
+greenlet
+groq
+h11
+hf-xet
+httpcore
+httpx
+httpx-sse
+huggingface_hub
+idna
+instructor
+itsdangerous
+Jinja2
+jiter
+joblib
+jsonpatch
+jsonpointer
+kiwisolver
+langchain
+langchain-community
+langchain-core
+langchain-groq
+langchain-huggingface
+langchain-openai
+langchain-text-splitters
+langsmith
+markdown-it-py
+MarkupSafe
+marshmallow
+matplotlib
+mdurl
+mpmath
+multidict
+multiprocess
+mypy_extensions
+nest-asyncio
+networkx
+numpy
+openai
+orjson
+packaging
 pandas
+pillow
+propcache
+pyarrow
+pydantic
+pydantic-settings
+pydantic_core
+Pygments
+pyparsing
+pypdf
+python-dateutil
+python-dotenv
+pytz
+PyYAML
+ragas
+regex
+requests
+requests-toolbelt
+rich
+safetensors
+scikit-learn
+scikit-network
+scipy
+seaborn
+sentence-transformers
+shellingham
+six
+sniffio
+SQLAlchemy
+sympy
+tenacity
+threadpoolctl
+tiktoken
+tokenizers
+torch
+tqdm
+transformers
+typer
+typing-inspect
+typing-inspection
+typing_extensions
+tzdata
+urllib3
+uuid_utils
+Werkzeug
+xxhash
+yarl
+zstandard

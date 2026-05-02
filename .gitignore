@@ -13,7 +13,6 @@ logs/
 
 # Vector DB / generated data
 vectorstore/
-data/
 
 # OS / editor
 .DS_Store

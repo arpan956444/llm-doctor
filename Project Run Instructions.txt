@@ -1,0 +1,55 @@
+To run the project, follow these commands in your terminal:
+
+# 1. Create a virtual environment
+python -m venv venv
+
+# 2. Activate the virtual environment
+# On Windows:
+venv\Scripts\activate
+# On Mac/Linux:
+source venv/bin/activate
+
+# 3. Install the required dependencies
+pip install -r requirements-old.txt
+
+# 4. Process the PDFs and initialize the Vector Database
+# (Ensure your PDF files are in the 'data/' folder before running this)
+python -m app.components.data_loader
+
+# 5. Start the Flask Web Application
+python -m app.application
+
+# 6. (Optional) Run the Evaluation Pipeline
+python evaluator.py
+
+---
+
+To run this project on an Apple PC (macOS), follow these commands in your terminal:
+
+1. **Setup Virtual Environment:**
+python3 -m venv venv
+source venv/bin/activate
+
+2. **Install Dependencies:**
+pip install --upgrade pip
+pip install -r requirements-old.txt
+
+3. **Configure API Key:**
+# Create a .env file and add your key
+echo 'GROQ_API_KEY="your_actual_groq_api_key_here"' > .env
+
+4. **Prepare Data Folder:**
+mkdir data
+# Copy your medical PDF files into the newly created 'data' folder now.
+
+5. **Initialize Vector Database:**
+python3 -m app.components.data_loader
+
+6. **Run the Chatbot Application:**
+python3 -m app.application
+
+7. **Access the App:**
+Open your browser and navigate to: http://127.0.0.1:5000
+
+8. **(Optional) Run Evaluation:**
+python3 evaluator.py
