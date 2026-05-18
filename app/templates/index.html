@@ -189,7 +189,12 @@
             <a class="navbar-brand fw-bold text-primary" href="#">
                 <i class="fa-solid fa-user-doctor me-2"></i>LLM Doctor
             </a>
-            <div class="ms-auto">
+            <div class="ms-auto d-flex align-items-center">
+                <select id="model-select" class="form-select form-select-sm me-2" style="width: auto;">
+                    {% for config in configs %}
+                        <option value="{{ config }}">{{ config.replace('_', ' ') }}</option>
+                    {% endfor %}
+                </select>
                 <a href="{{ url_for('clear') }}" class="btn btn-sm btn-outline-danger">
                     <i class="fa-solid fa-trash-can me-1"></i> Clear Session
                 </a>
@@ -291,6 +296,7 @@
         chatForm.addEventListener('submit', async function(e) {
             e.preventDefault();
             const prompt = promptInput.value.trim();
+            const config = document.getElementById('model-select').value;
             if (!prompt) return;
 
             if (welcomeMsg) welcomeMsg.style.display = 'none';
@@ -316,7 +322,10 @@
                 const response = await fetch('/chat', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ prompt: prompt })
+                    body: JSON.stringify({ 
+                        prompt: prompt,
+                        config: config
+                    })
                 });
 
                 const data = await response.json();

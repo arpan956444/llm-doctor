@@ -5,44 +5,42 @@ from app.components.embeddings import get_embedding_model
 from app.common.logger import get_logger
 from app.common.custom_exception import CustomException
 
-from app.config.config import DB_FAISS_PATH
-
 logger = get_logger(__name__)
 
-def load_vector_store():
+def load_vector_store(db_path, embedding_model_name):
     try:
-        embedding_model = get_embedding_model()
+        embedding_model = get_embedding_model(embedding_model_name)
 
-        if os.path.exists(DB_FAISS_PATH):
-            logger.info("Loading existing vectorstore.......")
-
+        if os.path.exists(db_path):
+            logger.info(f"Loading vectorstore from {os.path.abspath(db_path)}...")
             return FAISS.load_local(
-                DB_FAISS_PATH,
+                db_path,
                 embedding_model,
                 allow_dangerous_deserialization=True
             )
         else:
-            logger.warning("no vectorstore found.......")
+            logger.warning(f"No vectorstore found at {os.path.abspath(db_path)}")
+            return None
     except Exception as e:
-        error_message=CustomException("Failed to load vectorstore",e)
+        error_message = CustomException(f"Failed to load vectorstore at {db_path}", e)
         logger.error(str(error_message))
+        return None
 
 
-def save_vector_store(text_chunks):
+def save_vector_store(text_chunks, db_path, embedding_model_name):
     try:
         if not text_chunks:
-            raise CustomException("No chunks were found....")
-        logger.info("Generating your new Vectorstore")
+            raise CustomException("No chunks provided for saving.")
+        
+        logger.info(f"Generating vectorstore for {embedding_model_name} at {db_path}")
+        embedding_model = get_embedding_model(embedding_model_name)
+        db = FAISS.from_documents(text_chunks, embedding_model)
 
-        embedding_model = get_embedding_model()
-
-        db = FAISS.from_documents(text_chunks,embedding_model)
-
-        logger.info("Saving Vectorstore......")
-        db.save_local(DB_FAISS_PATH)
-        logger.info("Vectorstore save successfully....")
-
+        os.makedirs(os.path.dirname(db_path), exist_ok=True)
+        db.save_local(db_path)
+        logger.info(f"Vectorstore saved successfully to {db_path}")
         return db
     except Exception as e:
-        error_message = CustomException("Failed to create a new Vectorstore",e)
+        error_message = CustomException(f"Failed to create vectorstore at {db_path}", e)
         logger.error(str(error_message))
+        raise error_message

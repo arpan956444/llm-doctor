@@ -22,6 +22,12 @@ python -m app.application
 # 6. (Optional) Run the Evaluation Pipeline
 python evaluator.py
 
+# 7. Updating Knowledge ("Training")
+# To update the chatbot with new information:
+#   a. Add new PDFs to the 'data/' directory
+#   b. Re-run: python -m app.components.data_loader
+# The chatbot will now use the new data for future queries.
+
 ---
 
 To run this project on an Apple PC (macOS), follow these commands in your terminal:
@@ -53,3 +59,8 @@ Open your browser and navigate to: http://127.0.0.1:5000
 
 8. **(Optional) Run Evaluation:**
 python3 evaluator.py
+
+9. **Updating Knowledge ("Training"):**
+# To update the chatbot with new information:
+#   a. Add new PDFs to the 'data/' directory
+#   b. Re-run: python3 -m app.components.data_loader

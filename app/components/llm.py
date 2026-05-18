@@ -18,7 +18,7 @@ def load_llm(model_name: str= "llama-3.1-8b-instant",groq_api_key: str = GROQ_AP
 
         return llm
     except Exception as e:
-        error_massage= CustomException("Failed to load LLM From Groq",e)
-        logger.error(str(error_massage))
+        error_message = CustomException("Failed to load LLM From Groq",e)
+        logger.error(str(error_message))
 
         return None

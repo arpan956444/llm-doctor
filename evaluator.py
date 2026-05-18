@@ -1,9 +1,11 @@
 import os
+from dotenv import load_dotenv
+load_dotenv()
+
 import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sns
 import numpy as np
-from dotenv import load_dotenv
 from datasets import Dataset
 from bert_score import score as bert_score_func
 import transformers
@@ -22,8 +24,6 @@ from ragas.embeddings import LangchainEmbeddingsWrapper
 from app.components.retriever import create_qa_chain
 from app.components.llm import load_llm
 from app.components.embeddings import get_embedding_model
-
-load_dotenv()
 
 # [List truncated for brevity - keep your existing test_questions here]
 test_questions = [
@@ -115,59 +115,105 @@ def get_safe_ragas_scores(rag_results):
     # Final fallback: return empty or try to force cast
     return getattr(rag_results, "scores", {})
 
-def run_evaluation():
-    qa_chain = create_qa_chain()
-    llm_obj = load_llm()
-    embed_model = get_embedding_model()
+from app.config.config import MODEL_COMBINATIONS
+from sentence_transformers import CrossEncoder
 
-    ragas_llm = LangchainLLMWrapper(llm_obj)
-    ragas_emb = LangchainEmbeddingsWrapper(embed_model)
+def run_evaluation_for_config(config_name):
+    print(f"\n>>> EVALUATING CONFIGURATION: {config_name} <<<")
+    config = MODEL_COMBINATIONS[config_name]
+    qa_chain = create_qa_chain(config_name)
+    if qa_chain is None:
+        raise RuntimeError(f"QA Chain for '{config_name}' could not be initialized. Please ensure your vector stores are generated via 'python -m app.components.data_loader' and check your .env for a valid GROQ_API_KEY.")
     
+    reranker = None
+    if config.get("rerank"):
+        print(f"Loading Reranker: {config['reranker_model']}")
+        reranker = CrossEncoder(config["reranker_model"])
+
     results_data = []
-    print("--- Starting RAG Retrieval ---")
-    
     for item in test_questions:
-        print(f"Testing Question: {item['question']}")
-        response = qa_chain.invoke({"query": item["question"]})
+        query = item["question"]
+        # ConversationalRetrievalChain requires 'question' and 'chat_history' keys
+        response = qa_chain.invoke({"question": query, "chat_history": []})
         
-        answer = response.get("result", "")
+        answer = response.get("answer", "")
         source_docs = response.get("source_documents", [])
-        context = [doc.page_content for doc in source_docs]
-        if not context: context = ["No context found in vectorstore"]
+        
+        # Apply Reranking logic if enabled
+        if reranker and source_docs:
+            doc_texts = [d.page_content for d in source_docs]
+            scores = reranker.predict([(query, doc) for doc in doc_texts])
+            # Re-rank and take top 2
+            ranked_docs = [doc for _, doc in sorted(zip(scores, doc_texts), reverse=True)]
+            context = ranked_docs[:2]
+        else:
+            context = [doc.page_content for doc in source_docs]
 
         results_data.append({
-            "question": item["question"],
+            "config": config_name,
+            "question": query,
             "answer": answer,
-            "contexts": context,
+            "contexts": context if context else ["No context"],
             "ground_truth": item["ground_truth"],
             "f1": calculate_token_f1(answer, item["ground_truth"])
         })
 
-    # Batch BERTScore calculation (Fixes speed and repetitive logging)
-    print("\n--- Calculating BERTScores in batch ---")
+    # BERTScore
     all_answers = [r["answer"] for r in results_data]
     all_gt = [r["ground_truth"] for r in results_data]
-    P, R, F1 = bert_score_func(all_answers, all_gt, lang="en", verbose=False)
-    
+    # Use distilbert-base-uncased to avoid RobertaTokenizer attribute errors in some transformers versions
+    _, _, F1 = bert_score_func(all_answers, all_gt, model_type="distilbert-base-uncased", lang="en", verbose=False)
     for i, score in enumerate(F1):
         results_data[i]["bert_f1"] = score.item()
 
+    # Ragas
+    llm_obj = load_llm(model_name=config["llm"])
+    embed_model = get_embedding_model(model_name=config["embeddings"])
     dataset = Dataset.from_dict({
-        "question": [item["question"] for item in results_data],
-        "answer": [item["answer"] for item in results_data],
-        "contexts": [item["contexts"] for item in results_data],
-        "ground_truth": [item["ground_truth"] for item in results_data]
+        "question": [r["question"] for r in results_data],
+        "answer": [r["answer"] for r in results_data],
+        "contexts": [r["contexts"] for r in results_data],
+        "ground_truth": [r["ground_truth"] for r in results_data]
     })
     
-    print("\n--- Calculating Ragas Metrics ---")
-    ragas_results = evaluate(
-        dataset,
-        metrics=[faithfulness, answer_relevancy],
-        llm=ragas_llm,
-        embeddings=ragas_emb
+    ragas_res = evaluate(
+        dataset, 
+        metrics=[faithfulness, answer_relevancy], 
+        llm=LangchainLLMWrapper(llm_obj), 
+        embeddings=LangchainEmbeddingsWrapper(embed_model)
     )
     
-    return pd.DataFrame(results_data), ragas_results
+    scores = get_safe_ragas_scores(ragas_res)
+    return pd.DataFrame(results_data), scores
+
+def run_comparative_evaluation():
+    all_dfs = []
+    summary_data = []
+
+    for config_name in MODEL_COMBINATIONS.keys():
+        df, rag_scores = run_evaluation_for_config(config_name)
+        all_dfs.append(df)
+        
+        summary_row = {
+            "Config": config_name,
+            "Avg_F1": df["f1"].mean(),
+            "Avg_BERTScore": df["bert_f1"].mean(),
+            **rag_scores
+        }
+        summary_data.append(summary_row)
+
+    comparison_df = pd.concat(all_dfs)
+    comparison_df.to_csv("multi_model_comparison_details.csv", index=False)
+    
+    summary_df = pd.DataFrame(summary_data)
+    summary_df.to_csv("multi_model_comparison_summary.csv", index=False)
+    
+    print("\n" + "="*50)
+    print("      MULTI-MODEL COMPARISON SUMMARY")
+    print("="*50)
+    print(summary_df.to_string(index=False))
+    print("="*50)
+    return summary_df
 
 def generate_reports(df, rag_results):
     csv_path = "evaluation_details.csv"
@@ -239,10 +285,23 @@ def plot_evaluations(df, rag_results):
 
 if __name__ == "__main__":
     try:
-        df, rag_scores = run_evaluation()
-        generate_reports(df, rag_scores)
-        plot_evaluations(df, rag_scores)
-        print("\n" + "="*30 + "\nPIPELINE FINISHED SUCCESSFULLY\n" + "="*30)
+        summary_results = run_comparative_evaluation()
+        
+        # Plot side-by-side comparison
+        plt.figure(figsize=(12, 6))
+        metrics_to_plot = ["Avg_F1", "Avg_BERTScore", "faithfulness", "answer_relevancy"]
+        plot_df = summary_results.melt(id_vars="Config", value_vars=metrics_to_plot, var_name="Metric", value_name="Score")
+        
+        sns.barplot(data=plot_df, x="Metric", y="Score", hue="Config")
+        plt.title("Comparative Performance Across Model Configurations")
+        plt.ylim(0, 1.1)
+        plt.legend(bbox_to_anchor=(1.05, 1), loc='upper left')
+        plt.tight_layout()
+        plt.savefig("model_comparison_chart.png")
+        
+        print("\nComparative chart saved: model_comparison_chart.png")
+        print("Detailed logs saved: multi_model_comparison_details.csv")
+        print("\nPIPELINE FINISHED SUCCESSFULLY")
     except Exception as e:
         print(f"\nEvaluation failed: {e}")
         import traceback

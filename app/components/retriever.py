@@ -1,4 +1,4 @@
-from langchain.chains import RetrievalQA
+from langchain.chains import ConversationalRetrievalChain
 from langchain_core.prompts import PromptTemplate
 from app.components.llm import load_llm
 from app.components.vector_store import load_vector_store
@@ -24,32 +24,42 @@ def set_custom_prompt():
         input_variables=["context", "question"]
     )
 
-def create_qa_chain():
+from app.config.config import MODEL_COMBINATIONS
+
+def create_qa_chain(config_name="Setup_Default"):
     try:
+        config = MODEL_COMBINATIONS.get(config_name)
+        if not config:
+            raise CustomException(f"Config {config_name} not found in config.py")
 
-        logger.info("Loading vector store for context")
-        db = load_vector_store()
+        logger.info(f"Creating QA chain for {config_name}")
+        
+        db = load_vector_store(config["vectorstore"], config["embeddings"])
         if db is None:
-            raise CustomException("Vector store not present or empty")
+            raise CustomException(f"Vector store not found for {config_name}. Run data_loader first.")
 
-        llm = load_llm()
-
+        llm = load_llm(model_name=config["llm"])
         if llm is None:
-            raise CustomException("LLM not loaded")
-        qa_chain = RetrievalQA.from_chain_type(
+            raise CustomException(f"LLM {config['llm']} failed to load.")
+
+        # Configuration for retrieval
+        search_kwargs = {'k': 10 if config.get("rerank") else 2}
+
+        qa_chain = ConversationalRetrievalChain.from_llm(
             llm=llm,
-            chain_type="stuff",
-            retriever=db.as_retriever(search_kwargs={'k': 2}),
+            retriever=db.as_retriever(search_kwargs=search_kwargs),
             return_source_documents=True,
-            chain_type_kwargs={'prompt': set_custom_prompt()}
+            combine_docs_chain_kwargs={'prompt': set_custom_prompt()}
         )
 
-        logger.info("Successfully created the QA chain")
+        # Note: True Reranking requires a custom chain. 
+        # For this implementation, we return the base chain and 
+        # the evaluator will handle the reranking logic if config['rerank'] is True.
+        
+        logger.info(f"Successfully created QA chain for {config_name}")
         return qa_chain
 
     except Exception as e:
-
-        error_message = CustomException("Failed to make a QA chain", e)
+        error_message = CustomException(f"Failed to create QA chain for {config_name}", e)
         logger.error(str(error_message))
-
         return None
