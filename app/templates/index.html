@@ -2,46 +2,353 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8" />
-    <title>🔍 AI Medical Chatbot</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LLM Doctor | AI Medical Assistant</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
-        body { font-family: Arial, sans-serif; margin: 2rem; }
-        .chat-container { max-width: 700px; margin: 0 auto; }
-        .message { margin-bottom: 1rem; padding: 0.75rem; border-radius: 10px; }
-        .user { background-color: #d1e7ff; text-align: right; }
-        .assistant { background-color: #f1f1f1; text-align: left; }
-        form { margin-top: 2rem; }
-        textarea { width: 100%; height: 3rem; padding: 0.5rem; font-size: 1rem; }
-        button { padding: 0.5rem 1rem; font-size: 1rem; margin-top: 0.5rem; }
-        .error { color: red; }
-        .clear-btn { margin-top: 1rem; }
+        :root {
+            --primary-color: #007bff;
+            --assistant-bg: #f8f9fa;
+            --user-bg: #e7f3ff;
+            --body-bg: #f0f2f5;
+        }
+
+        body {
+            background-color: var(--body-bg);
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .navbar {
+            background-color: white;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        .chat-wrapper {
+            flex: 1;
+            overflow: hidden;
+            display: flex;
+            justify-content: center;
+            padding: 20px;
+        }
+
+        .chat-container {
+            width: 100%;
+            max-width: 900px;
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.05);
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        #chat-box {
+            flex: 1;
+            overflow-y: auto;
+            padding: 25px;
+            scroll-behavior: smooth;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .status-container {
+            font-size: 0.85rem;
+            color: #6c757d;
+            margin-top: 10px;
+            margin-bottom: 20px;
+            display: none;
+            align-items: center;
+            background: rgba(0,123,255,0.05);
+            padding: 8px 15px;
+            border-radius: 10px;
+            border-left: 3px solid var(--primary-color);
+        }
+
+        .status-dot {
+            height: 8px;
+            width: 8px;
+            background-color: var(--primary-color);
+            border-radius: 50%;
+            display: inline-block;
+            margin-right: 10px;
+            animation: pulse 1.2s infinite ease-in-out;
+        }
+
+        @keyframes pulse {
+            0% { transform: scale(0.8); opacity: 0.5; }
+            50% { transform: scale(1.2); opacity: 1; }
+            100% { transform: scale(0.8); opacity: 0.5; }
+        }
+
+        .message {
+            margin-bottom: 20px;
+            max-width: 85%;
+            padding: 12px 18px;
+            border-radius: 18px;
+            position: relative;
+            line-height: 1.5;
+            font-size: 0.95rem;
+            animation: fadeIn 0.3s ease;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .user {
+            background-color: var(--user-bg);
+            color: #0d6efd;
+            align-self: flex-end;
+            margin-left: auto;
+            border-bottom-right-radius: 4px;
+        }
+
+        .assistant {
+            background-color: var(--assistant-bg);
+            color: #333;
+            align-self: flex-start;
+            border: 1px solid #e9ecef;
+            border-bottom-left-radius: 4px;
+        }
+
+        .msg-header {
+            font-size: 0.75rem;
+            font-weight: bold;
+            text-transform: uppercase;
+            margin-bottom: 5px;
+            display: block;
+        }
+
+        .input-area {
+            padding: 20px;
+            border-top: 1px solid #eee;
+            background: white;
+        }
+
+        .textarea-container {
+            position: relative;
+        }
+
+        textarea {
+            width: 100%;
+            border: 1px solid #dee2e6;
+            border-radius: 12px;
+            padding: 12px 50px 12px 15px;
+            resize: none;
+            height: 60px !important;
+            transition: border-color 0.2s;
+        }
+
+        textarea:focus {
+            outline: none;
+            border-color: var(--primary-color);
+            box-shadow: 0 0 0 3px rgba(0,123,255,0.1);
+        }
+
+        .send-btn {
+            position: absolute;
+            right: 10px;
+            top: 50%;
+            transform: translateY(-50%);
+            background: none;
+            border: none;
+            color: var(--primary-color);
+            font-size: 1.2rem;
+            cursor: pointer;
+            transition: transform 0.2s;
+        }
+
+        .send-btn:hover {
+            transform: translateY(-50%) scale(1.1);
+        }
+
+        .error-toast {
+            background: #f8d7da;
+            color: #842029;
+            padding: 10px 15px;
+            border-radius: 8px;
+            margin-bottom: 15px;
+            font-size: 0.9rem;
+            display: flex;
+            align-items: center;
+        }
+
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #ccc; border-radius: 10px; }
+        ::-webkit-scrollbar-thumb:hover { background: #999; }
     </style>
 </head>
 <body>
-    <div class="chat-container">
-        <h1>🔍 AI Medical Chatbot New Change</h1>
-
-        {% if error %}
-            <p class="error">{{ error }}</p>
-        {% endif %}
-
-        <div id="chat-box">
-            {% for msg in messages %}
-                <div class="message {{ msg.role }}">
-                    <strong>{{ msg.role|capitalize }}:</strong><br />
-                    {{ msg.content | safe | nl2br }}
-                </div>
-            {% endfor %}
+    <nav class="navbar navbar-expand-lg">
+        <div class="container">
+            <a class="navbar-brand fw-bold text-primary" href="#">
+                <i class="fa-solid fa-user-doctor me-2"></i>LLM Doctor
+            </a>
+            <div class="ms-auto">
+                <a href="{{ url_for('clear') }}" class="btn btn-sm btn-outline-danger">
+                    <i class="fa-solid fa-trash-can me-1"></i> Clear Session
+                </a>
+            </div>
         </div>
+    </nav>
 
-        <form method="post" action="{{ url_for('index') }}">
-            <textarea name="prompt" placeholder="Ask a medical question..." required></textarea>
-            <br />
-            <button type="submit">Send</button>
-        </form>
+    <div class="chat-wrapper">
+        <div class="chat-container">
+            <div id="chat-box">
+                {% if not messages %}
+                    <div class="text-center my-auto text-muted" id="welcome-msg">
+                        <i class="fa-solid fa-hand-holding-medical fa-3x mb-3"></i>
+                        <p>Welcome to your AI Medical Assistant.<br>Ask me any question based on the provided documents.</p>
+                    </div>
+                {% endif %}
 
-        <form method="get" action="{{ url_for('clear') }}">
-            <button type="submit" class="clear-btn">Clear Chat</button>
-        </form>
+                {% for msg in messages %}
+                    <div class="message {{ msg.role }}">
+                        <span class="msg-header">
+                            {% if msg.role == 'user' %}
+                                <i class="fa-solid fa-user me-1"></i> You
+                            {% else %}
+                                <i class="fa-solid fa-robot me-1"></i> Assistant
+                            {% endif %}
+                        </span>
+                        <div class="msg-content">{{ msg.content | safe | nl2br }}</div>
+                    </div>
+                {% endfor %}
+                
+                <div id="status-area" class="status-container">
+                    <span class="status-dot"></span>
+                    <span id="status-text">Processing...</span>
+                </div>
+            </div>
+
+            <div class="input-area">
+                <div id="error-container"></div>
+                <form id="chat-form">
+                    <div class="textarea-container">
+                        <textarea name="prompt" id="prompt" placeholder="Type your medical query here..." required></textarea>
+                        <button type="submit" class="send-btn" id="send-button">
+                            <i class="fa-solid fa-paper-plane"></i>
+                        </button>
+                    </div>
+                    <div class="text-center mt-2">
+                        <small class="text-muted" style="font-size: 0.7rem;">
+                            Press Enter to send. This AI is for educational purposes only.
+                        </small>
+                    </div>
+                </form>
+            </div>
+        </div>
     </div>
+
+    <script>
+        const chatBox = document.getElementById('chat-box');
+        const promptInput = document.getElementById('prompt');
+        const chatForm = document.getElementById('chat-form');
+        const statusArea = document.getElementById('status-area');
+        const statusText = document.getElementById('status-text');
+        const welcomeMsg = document.getElementById('welcome-msg');
+        const errorContainer = document.getElementById('error-container');
+        const sendBtn = document.getElementById('send-button');
+
+        function scrollToBottom() {
+            chatBox.scrollTop = chatBox.scrollHeight;
+        }
+
+        window.onload = scrollToBottom;
+
+        function appendMessage(role, content) {
+            const div = document.createElement('div');
+            div.className = `message ${role}`;
+            const icon = role === 'user' ? 'fa-user' : 'fa-robot';
+            const label = role === 'user' ? 'You' : 'Assistant';
+            const formattedContent = content.replace(/\n/g, '<br>');
+
+            div.innerHTML = `
+                <span class="msg-header">
+                    <i class="fa-solid ${icon} me-1"></i> ${label}
+                </span>
+                <div class="msg-content">${formattedContent}</div>
+            `;
+            chatBox.insertBefore(div, statusArea);
+            scrollToBottom();
+        }
+
+        function updateStatus(text, show = true) {
+            if (show) {
+                statusArea.style.display = 'flex';
+                statusText.innerText = text;
+            } else {
+                statusArea.style.display = 'none';
+            }
+            scrollToBottom();
+        }
+
+        chatForm.addEventListener('submit', async function(e) {
+            e.preventDefault();
+            const prompt = promptInput.value.trim();
+            if (!prompt) return;
+
+            if (welcomeMsg) welcomeMsg.style.display = 'none';
+            errorContainer.innerHTML = '';
+            promptInput.value = '';
+            promptInput.disabled = true;
+            sendBtn.disabled = true;
+
+            appendMessage('user', prompt);
+            updateStatus("Initializing retrieval...");
+            
+            const statusTicks = [
+                { t: 800, msg: "Searching medical PDF knowledge base..." },
+                { t: 2500, msg: "Extracting relevant clinical information..." },
+                { t: 4500, msg: "Synthesizing answer with Llama 3.1..." }
+            ];
+
+            const timers = statusTicks.map(tick => 
+                setTimeout(() => updateStatus(tick.msg), tick.t)
+            );
+
+            try {
+                const response = await fetch('/chat', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ prompt: prompt })
+                });
+
+                const data = await response.json();
+                timers.forEach(clearTimeout);
+
+                if (response.ok) {
+                    updateStatus("", false);
+                    appendMessage('assistant', data.content);
+                } else {
+                    throw new Error(data.error || "Connection error");
+                }
+            } catch (err) {
+                timers.forEach(clearTimeout);
+                updateStatus("", false);
+                errorContainer.innerHTML = `
+                    <div class="error-toast">
+                        <i class="fa-solid fa-triangle-exclamation me-2"></i> Error: ${err.message}
+                    </div>
+                `;
+            } finally {
+                promptInput.disabled = false;
+                sendBtn.disabled = false;
+                promptInput.focus();
+            }
+        });
+
+        promptInput.addEventListener('keydown', function(e) {
+            if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                chatForm.requestSubmit();
+            }
+        });
+    </script>
 </body>
 </html>
