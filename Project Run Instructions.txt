@@ -2,6 +2,7 @@ To run the project, follow these commands in your terminal:
 
 # 1. Create a virtual environment
 python -m venv venv
+# py -3.12 -m venv venv 
 
 # 2. Activate the virtual environment
 # On Windows:
