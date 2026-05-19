@@ -10,7 +10,7 @@ venv\Scripts\activate
 source venv/bin/activate
 
 # 3. Install the required dependencies
-pip install -r requirements-old.txt
+pip install -r requirements.txt
 
 # 4. Process the PDFs and initialize the Vector Database
 # (Ensure your PDF files are in the 'data/' folder before running this)
