@@ -184,25 +184,25 @@ def run_evaluation_for_config(config_name):
     )
     
     scores = get_safe_ragas_scores(ragas_res)
-    return pd.DataFrame(results_data), scores
+    return pd.DataFrame(results_data), scores, ragas_res # RETURN RAGAS_RES OBJECT
 
 def run_comparative_evaluation():
-    all_dfs = []
+    all_detailed_results = [] # Stores (config_name, df_details, ragas_full_obj)
     summary_data = []
 
     for config_name in MODEL_COMBINATIONS.keys():
-        df, rag_scores = run_evaluation_for_config(config_name)
-        all_dfs.append(df)
+        df_details, ragas_scores_dict, ragas_full_obj = run_evaluation_for_config(config_name)
+        all_detailed_results.append((config_name, df_details, ragas_full_obj))
         
         summary_row = {
             "Config": config_name,
-            "Avg_F1": df["f1"].mean(),
-            "Avg_BERTScore": df["bert_f1"].mean(),
-            **rag_scores
+            "Avg_F1": df_details["f1"].mean(),
+            "Avg_BERTScore": df_details["bert_f1"].mean(),
+            **ragas_scores_dict
         }
         summary_data.append(summary_row)
 
-    comparison_df = pd.concat(all_dfs)
+    comparison_df = pd.concat([item[1] for item in all_detailed_results])
     comparison_df.to_csv("multi_model_comparison_details.csv", index=False)
     
     summary_df = pd.DataFrame(summary_data)
@@ -213,7 +213,7 @@ def run_comparative_evaluation():
     print("="*50)
     print(summary_df.to_string(index=False))
     print("="*50)
-    return summary_df
+    return summary_df, all_detailed_results
 
 def generate_reports(df, rag_results):
     csv_path = "evaluation_details.csv"
@@ -285,12 +285,31 @@ def plot_evaluations(df, rag_results):
 
 if __name__ == "__main__":
     try:
-        summary_results = run_comparative_evaluation()
+        summary_results_df, all_detailed_results = run_comparative_evaluation()
         
-        # Plot side-by-side comparison
+        # Identify the detailed results for "Setup_Model4" to generate its specific reports
+        model4_config_name = "Setup_Model4"
+        model4_detailed_df = None
+        model4_ragas_results_obj = None
+
+        for config_name, df, ragas_obj in all_detailed_results:
+            if config_name == model4_config_name:
+                model4_detailed_df = df
+                model4_ragas_results_obj = ragas_obj
+                break
+        
+        if model4_detailed_df is not None and model4_ragas_results_obj is not None:
+            print(f"\n--- Generating main reports for '{model4_config_name}' (Model 4) ---")
+            generate_reports(model4_detailed_df, model4_ragas_results_obj)
+            plot_evaluations(model4_detailed_df, model4_ragas_results_obj)
+        else:
+            print(f"\nWarning: Could not find detailed results for '{model4_config_name}'. Skipping main reports.")
+
+
+        # Plot side-by-side comparison for ALL models
         plt.figure(figsize=(12, 6))
         metrics_to_plot = ["Avg_F1", "Avg_BERTScore", "faithfulness", "answer_relevancy"]
-        plot_df = summary_results.melt(id_vars="Config", value_vars=metrics_to_plot, var_name="Metric", value_name="Score")
+        plot_df = summary_results_df.melt(id_vars="Config", value_vars=metrics_to_plot, var_name="Metric", value_name="Score")
         
         sns.barplot(data=plot_df, x="Metric", y="Score", hue="Config")
         plt.title("Comparative Performance Across Model Configurations")

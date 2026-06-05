@@ -4,22 +4,22 @@
 
 Total Samples Evaluated: 63
 -------------------------------------------
-Average Token F1 Score:  0.3080
-Average BERTScore:       0.9012
+Average Token F1 Score:  0.3000
+Average BERTScore:       0.8381
 
 --- Ragas Metrics (High Level) ---
-faithfulness        : 0.8709
-answer_relevancy    : 0.8327
+faithfulness        : 0.8523
+answer_relevancy    : 0.8664
 
 ===========================================
    PERFORMANCE HIGHLIGHTS (BERTScore)
 ===========================================
-1. Question: What are Calcium Channel Blockers?
-   Score: 0.9898
+1. Question: What is inflammation?
+   Score: 0.9309
 
-2. Question: What is Celiac Disease?
-   Score: 0.9746
+2. Question: What characterizes Tinea Versicolor?
+   Score: 0.9308
 
-3. Question: What characterizes Vitiligo?
-   Score: 0.9575
+3. Question: What are the symptoms of Tetanus?
+   Score: 0.9286
 

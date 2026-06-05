@@ -9,12 +9,17 @@
     <style>
         :root {
             --primary-color: #007bff;
-            --assistant-bg: #f8f9fa;
-            --user-bg: #e7f3ff;
-            --body-bg: #f0f2f5;
+            --secondary-color: #6c757d;
+            --assistant-bg: #e9ecef; /* Lighter grey for assistant */
+            --user-bg: #d1e7ff; /* Lighter blue for user */
+            --body-bg: #f8fafd; /* Very light blue-grey */
+            --border-color: #dee2e6;
+            --shadow-light: rgba(0, 0, 0, 0.05);
+            --shadow-medium: rgba(0, 0, 0, 0.1);
         }
 
         body {
+            font-family: 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
             background-color: var(--body-bg);
             height: 100vh;
             display: flex;
@@ -23,7 +28,36 @@
 
         .navbar {
             background-color: white;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            box-shadow: 0 2px 8px var(--shadow-light);
+            padding: 1rem 0;
+        }
+        .navbar-brand {
+            font-size: 1.5rem;
+            color: var(--primary-color) !important;
+        }
+        .navbar-brand i {
+            color: var(--secondary-color);
+        }
+        #model-select {
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 0.375rem 0.75rem;
+            font-size: 0.875rem;
+            transition: border-color 0.2s, box-shadow 0.2s;
+        }
+        #model-select:focus {
+            border-color: var(--primary-color);
+            box-shadow: 0 0 0 0.25rem rgba(0, 123, 255, 0.25);
+            outline: none;
+        }
+        .btn-outline-danger {
+            border-color: #dc3545;
+            color: #dc3545;
+            transition: all 0.2s;
+        }
+        .btn-outline-danger:hover {
+            background-color: #dc3545;
+            color: white;
         }
 
         .chat-wrapper {
@@ -31,15 +65,18 @@
             overflow: hidden;
             display: flex;
             justify-content: center;
+            align-items: center; /* Center vertically */
             padding: 20px;
+            position: relative; /* For responsiveness */
         }
 
         .chat-container {
             width: 100%;
             max-width: 900px;
+            height: 95%; /* Make it take more height */
             background: white;
-            border-radius: 15px;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.05);
+            border-radius: 18px;
+            box-shadow: 0 8px 30px var(--shadow-medium);
             display: flex;
             flex-direction: column;
             overflow: hidden;
@@ -52,24 +89,28 @@
             scroll-behavior: smooth;
             display: flex;
             flex-direction: column;
+            background-color: #ffffff; /* Clean background */
         }
 
         .status-container {
             font-size: 0.85rem;
-            color: #6c757d;
+            color: var(--secondary-color);
             margin-top: 10px;
             margin-bottom: 20px;
+            padding: 10px 15px;
+            border-radius: 12px;
+            background: rgba(0, 123, 255, 0.08); /* Slightly darker blue tint */
+            border-left: 4px solid var(--primary-color);
             display: none;
             align-items: center;
-            background: rgba(0,123,255,0.05);
-            padding: 8px 15px;
-            border-radius: 10px;
-            border-left: 3px solid var(--primary-color);
+            align-self: flex-start; /* Align to left like assistant messages */
+            max-width: fit-content;
+            animation: fadeIn 0.3s ease;
         }
 
         .status-dot {
-            height: 8px;
-            width: 8px;
+            height: 10px;
+            width: 10px;
             background-color: var(--primary-color);
             border-radius: 50%;
             display: inline-block;
@@ -78,24 +119,24 @@
         }
 
         @keyframes pulse {
-            0% { transform: scale(0.8); opacity: 0.5; }
-            50% { transform: scale(1.2); opacity: 1; }
-            100% { transform: scale(0.8); opacity: 0.5; }
+            0% { transform: scale(0.8); opacity: 0.6; }
+            50% { transform: scale(1.1); opacity: 1; }
+            100% { transform: scale(0.8); opacity: 0.6; }
         }
 
         .message {
-            margin-bottom: 20px;
-            max-width: 85%;
-            padding: 12px 18px;
-            border-radius: 18px;
-            position: relative;
-            line-height: 1.5;
-            font-size: 0.95rem;
-            animation: fadeIn 0.3s ease;
+            margin-bottom: 15px; /* Reduced margin */
+            padding: 15px 20px; /* Slightly larger padding */
+            border-radius: 20px; /* More rounded */
+            line-height: 1.6;
+            font-size: 0.98rem;
+            word-wrap: break-word;
+            animation: slideIn 0.3s ease-out;
+            max-width: 90%; /* Increased max-width */
         }
 
-        @keyframes fadeIn {
-            from { opacity: 0; transform: translateY(10px); }
+        @keyframes slideIn {
+            from { opacity: 0; transform: translateY(15px); }
             to { opacity: 1; transform: translateY(0); }
         }
 
@@ -104,49 +145,110 @@
             color: #0d6efd;
             align-self: flex-end;
             margin-left: auto;
-            border-bottom-right-radius: 4px;
+            border-bottom-right-radius: 8px; /* Slightly less round on bottom corner */
+            box-shadow: 0 2px 8px rgba(0, 123, 255, 0.1);
         }
 
         .assistant {
             background-color: var(--assistant-bg);
-            color: #333;
+            color: #343a40; /* Darker text for readability */
             align-self: flex-start;
-            border: 1px solid #e9ecef;
-            border-bottom-left-radius: 4px;
+            border: 1px solid #e0e4e8;
+            border-bottom-left-radius: 8px; /* Slightly less round on bottom corner */
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.03);
+            display: flex;
+            flex-direction: column; /* To stack header, content and copy */
+            position: relative;
+        }
+        .assistant .msg-header {
+            color: var(--secondary-color);
+            font-weight: 600;
         }
 
         .msg-header {
-            font-size: 0.75rem;
+            font-size: 0.78rem;
             font-weight: bold;
             text-transform: uppercase;
-            margin-bottom: 5px;
-            display: block;
+            margin-bottom: 4px;
+            opacity: 0.7;
+            display: flex;
+            align-items: center;
         }
+        .msg-header i {
+            margin-right: 6px;
+        }
+        .msg-content-wrapper {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-end; /* Align text and button at the bottom */
+            gap: 10px; /* Space between text and button */
+        }
+        .msg-content {
+            flex-grow: 1;
+            white-space: pre-wrap; /* Preserve whitespace and breaks */
+        }
+        .copy-button {
+            background: none;
+            border: none;
+            color: var(--secondary-color);
+            font-size: 0.9rem;
+            cursor: pointer;
+            padding: 5px;
+            margin-left: auto; /* Push to the right */
+            align-self: flex-end; /* Align to bottom-right of message content */
+            opacity: 0; /* Hidden by default */
+            transition: opacity 0.2s ease, transform 0.2s ease, color 0.2s ease;
+            position: absolute;
+            bottom: 10px; /* Adjusted position */
+            right: 15px; /* Adjusted position */
+        }
+        .message.assistant:hover .copy-button {
+            opacity: 1; /* Show on hover */
+        }
+        .copy-button:hover {
+            color: var(--primary-color);
+            transform: scale(1.1);
+        }
+        .copy-button:active {
+            transform: scale(0.9);
+        }
+        .copy-button.copied {
+            color: #28a745; /* Green when copied */
+        }
+
 
         .input-area {
             padding: 20px;
-            border-top: 1px solid #eee;
+            border-top: 1px solid var(--border-color);
             background: white;
+            border-radius: 0 0 18px 18px;
         }
 
         .textarea-container {
             position: relative;
+            display: flex;
+            align-items: center;
         }
 
         textarea {
             width: 100%;
-            border: 1px solid #dee2e6;
+            border: 1px solid var(--border-color);
             border-radius: 12px;
             padding: 12px 50px 12px 15px;
             resize: none;
-            height: 60px !important;
-            transition: border-color 0.2s;
+            min-height: 50px; /* Min height */
+            height: auto; /* Allow auto-sizing */
+            max-height: 150px; /* Max height before scroll */
+            transition: border-color 0.2s, box-shadow 0.2s;
+            font-size: 1rem;
+            line-height: 1.5;
+            overflow-y: auto; /* Scroll if content exceeds max-height */
         }
 
         textarea:focus {
             outline: none;
             border-color: var(--primary-color);
-            box-shadow: 0 0 0 3px rgba(0,123,255,0.1);
+            box-shadow: 0 0 0 3px rgba(0, 123, 255, 0.15);
         }
 
         .send-btn {
@@ -157,37 +259,115 @@
             background: none;
             border: none;
             color: var(--primary-color);
-            font-size: 1.2rem;
+            font-size: 1.4rem; /* Larger icon */
             cursor: pointer;
-            transition: transform 0.2s;
+            transition: transform 0.2s, color 0.2s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
         }
 
         .send-btn:hover {
             transform: translateY(-50%) scale(1.1);
+            color: #0056b3; /* Darker blue on hover */
+        }
+        .send-btn:disabled {
+            color: #cccccc;
+            cursor: not-allowed;
+            transform: translateY(-50%) scale(1);
         }
 
+
         .error-toast {
-            background: #f8d7da;
-            color: #842029;
-            padding: 10px 15px;
+            background: #ffe3e6; /* Light red */
+            color: #721c24; /* Dark red */
+            padding: 12px 18px;
             border-radius: 8px;
             margin-bottom: 15px;
             font-size: 0.9rem;
             display: flex;
             align-items: center;
+            border: 1px solid #f5c6cb;
+        }
+        .error-toast i {
+            color: #dc3545;
+            margin-right: 10px;
         }
 
-        ::-webkit-scrollbar { width: 6px; }
-        ::-webkit-scrollbar-track { background: transparent; }
-        ::-webkit-scrollbar-thumb { background: #ccc; border-radius: 10px; }
-        ::-webkit-scrollbar-thumb:hover { background: #999; }
+        #welcome-msg {
+            color: var(--secondary-color);
+            font-size: 1.1rem;
+            line-height: 1.8;
+            margin-top: auto; /* Push to center vertically */
+            margin-bottom: auto; /* Push to center vertically */
+            background: #f0f2f5;
+            padding: 30px;
+            border-radius: 15px;
+            max-width: 70%;
+            align-self: center; /* Center horizontally */
+            text-align: center;
+            box-shadow: 0 4px 15px var(--shadow-light);
+        }
+        #welcome-msg i {
+            color: var(--primary-color);
+        }
+
+        /* Scrollbar Styling */
+        ::-webkit-scrollbar { width: 8px; border-radius: 10px; }
+        ::-webkit-scrollbar-track { background: #f1f1f1; border-radius: 10px; }
+        ::-webkit-scrollbar-thumb { background: var(--border-color); border-radius: 10px; }
+        ::-webkit-scrollbar-thumb:hover { background: var(--secondary-color); }
+        
+        /* Responsive adjustments */
+        @media (max-width: 768px) {
+            .chat-container {
+                height: 98%;
+                border-radius: 10px;
+            }
+            .chat-wrapper {
+                padding: 10px;
+            }
+            .message {
+                max-width: 95%;
+                font-size: 0.9rem;
+                padding: 10px 15px;
+                border-radius: 15px;
+            }
+            .send-btn {
+                font-size: 1.1rem;
+                width: 35px;
+                height: 35px;
+            }
+            textarea {
+                padding: 10px 45px 10px 10px;
+            }
+            #welcome-msg {
+                max-width: 90%;
+                padding: 20px;
+                font-size: 1rem;
+            }
+            .navbar-brand {
+                font-size: 1.25rem;
+            }
+            .navbar .d-flex {
+                flex-wrap: wrap;
+                justify-content: flex-end;
+            }
+            #model-select {
+                margin-bottom: 5px;
+                flex-basis: 100%;
+            }
+        }
     </style>
 </head>
 <body>
     <nav class="navbar navbar-expand-lg">
         <div class="container">
-            <a class="navbar-brand fw-bold text-primary" href="#">
-                <i class="fa-solid fa-user-doctor me-2"></i>LLM Doctor
+            <a class="navbar-brand fw-bold" href="#">
+                <i class="fa-solid fa-notes-medical me-2"></i>LLM Doctor
             </a>
             <div class="ms-auto d-flex align-items-center">
                 <select id="model-select" class="form-select form-select-sm me-2" style="width: auto;">
@@ -196,7 +376,7 @@
                     {% endfor %}
                 </select>
                 <a href="{{ url_for('clear') }}" class="btn btn-sm btn-outline-danger">
-                    <i class="fa-solid fa-trash-can me-1"></i> Clear Session
+                    <i class="fa-solid fa-sync-alt me-1"></i> New Chat
                 </a>
             </div>
         </div>
@@ -206,9 +386,10 @@
         <div class="chat-container">
             <div id="chat-box">
                 {% if not messages %}
-                    <div class="text-center my-auto text-muted" id="welcome-msg">
-                        <i class="fa-solid fa-hand-holding-medical fa-3x mb-3"></i>
-                        <p>Welcome to your AI Medical Assistant.<br>Ask me any question based on the provided documents.</p>
+                    <div class="text-center my-auto" id="welcome-msg">
+                        <i class="fa-solid fa-hand-holding-medical fa-4x mb-4"></i>
+                        <h3>Welcome to LLM Doctor!</h3>
+                        <p>Your AI Medical Assistant is ready to help.<br>Ask me any question based on the provided documents.</p>
                     </div>
                 {% endif %}
 
@@ -221,7 +402,14 @@
                                 <i class="fa-solid fa-robot me-1"></i> Assistant
                             {% endif %}
                         </span>
-                        <div class="msg-content">{{ msg.content | safe | nl2br }}</div>
+                        <div class="msg-content-wrapper" data-message-id="{{ loop.index }}">
+                            <div class="msg-content">{{ msg.content | safe | nl2br }}</div>
+                            {% if msg.role == 'assistant' %}
+                                <button class="copy-button" aria-label="Copy message">
+                                    <i class="fa-regular fa-copy"></i>
+                                </button>
+                            {% endif %}
+                        </div>
                     </div>
                 {% endfor %}
                 
@@ -235,14 +423,14 @@
                 <div id="error-container"></div>
                 <form id="chat-form">
                     <div class="textarea-container">
-                        <textarea name="prompt" id="prompt" placeholder="Type your medical query here..." required></textarea>
+                        <textarea name="prompt" id="prompt" placeholder="Type your medical query here..." required rows="1"></textarea>
                         <button type="submit" class="send-btn" id="send-button">
                             <i class="fa-solid fa-paper-plane"></i>
                         </button>
                     </div>
                     <div class="text-center mt-2">
-                        <small class="text-muted" style="font-size: 0.7rem;">
-                            Press Enter to send. This AI is for educational purposes only.
+                        <small class="text-muted" style="font-size: 0.75rem;">
+                            Press Enter to send. Shift+Enter for new line. This AI is for educational purposes only.
                         </small>
                     </div>
                 </form>
@@ -259,26 +447,60 @@
         const welcomeMsg = document.getElementById('welcome-msg');
         const errorContainer = document.getElementById('error-container');
         const sendBtn = document.getElementById('send-button');
+        const modelSelect = document.getElementById('model-select');
+
+        let messageCounter = {{ messages|length }}; // Initialize with existing messages count
 
         function scrollToBottom() {
             chatBox.scrollTop = chatBox.scrollHeight;
         }
 
-        window.onload = scrollToBottom;
+        window.onload = () => {
+            scrollToBottom();
+            promptInput.focus();
+        };
+
+        function autoResizeTextarea() {
+            promptInput.style.height = 'auto';
+            promptInput.style.height = promptInput.scrollHeight + 'px';
+            if (promptInput.scrollHeight > parseInt(getComputedStyle(promptInput).maxHeight)) {
+                promptInput.style.overflowY = 'auto';
+            } else {
+                promptInput.style.overflowY = 'hidden';
+            }
+        }
+        promptInput.addEventListener('input', autoResizeTextarea);
+        // Initial resize for pre-filled content (if any)
+        autoResizeTextarea();
+
 
         function appendMessage(role, content) {
+            if (welcomeMsg) welcomeMsg.style.display = 'none';
+
             const div = document.createElement('div');
             div.className = `message ${role}`;
-            const icon = role === 'user' ? 'fa-user' : 'fa-robot';
+            const iconClass = role === 'user' ? 'fa-user' : 'fa-robot';
             const label = role === 'user' ? 'You' : 'Assistant';
-            const formattedContent = content.replace(/\n/g, '<br>');
+            const formattedContent = content.replace(/\n/g, '<br>\n'); // Use <br>\n for actual line breaks
 
-            div.innerHTML = `
+            messageCounter++; // Increment for new message
+
+            let messageHtml = `
                 <span class="msg-header">
-                    <i class="fa-solid ${icon} me-1"></i> ${label}
+                    <i class="fa-solid ${iconClass} me-1"></i> ${label}
                 </span>
-                <div class="msg-content">${formattedContent}</div>
-            `;
+                <div class="msg-content-wrapper" data-message-id="${messageCounter}">
+                    <div class="msg-content">${formattedContent}</div>`;
+            
+            if (role === 'assistant') {
+                messageHtml += `
+                    <button class="copy-button" aria-label="Copy message">
+                        <i class="fa-regular fa-copy"></i>
+                    </button>`;
+            }
+            messageHtml += `</div>`;
+            div.innerHTML = messageHtml;
+            
             chatBox.insertBefore(div, statusArea);
             scrollToBottom();
         }
@@ -296,12 +518,12 @@
         chatForm.addEventListener('submit', async function(e) {
             e.preventDefault();
             const prompt = promptInput.value.trim();
-            const config = document.getElementById('model-select').value;
+            const config = modelSelect.value;
             if (!prompt) return;
 
-            if (welcomeMsg) welcomeMsg.style.display = 'none';
             errorContainer.innerHTML = '';
             promptInput.value = '';
+            autoResizeTextarea(); // Reset textarea height
             promptInput.disabled = true;
             sendBtn.disabled = true;
 
@@ -356,6 +578,31 @@
             if (e.key === 'Enter' && !e.shiftKey) {
                 e.preventDefault();
                 chatForm.requestSubmit();
+            }
+        });
+
+        // Event delegation for copy buttons
+        chatBox.addEventListener('click', async (e) => {
+            if (e.target.closest('.copy-button')) {
+                const button = e.target.closest('.copy-button');
+                const contentWrapper = button.closest('.msg-content-wrapper');
+                const textContentDiv = contentWrapper.querySelector('.msg-content');
+                const textToCopy = textContentDiv.innerText;
+
+                try {
+                    await navigator.clipboard.writeText(textToCopy);
+                    button.classList.add('copied');
+                    const originalIcon = button.querySelector('i').className;
+                    button.querySelector('i').className = 'fa-solid fa-check'; // Change icon to check
+                    
+                    setTimeout(() => {
+                        button.classList.remove('copied');
+                        button.querySelector('i').className = originalIcon; // Revert icon
+                    }, 1500); // Revert after 1.5 seconds
+                } catch (err) {
+                    console.error('Failed to copy text: ', err);
+                    // Optionally show a temporary error message
+                }
             }
         });
     </script>
