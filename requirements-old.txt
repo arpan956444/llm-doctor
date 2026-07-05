@@ -1,21 +1,32 @@
-# langchain==0.3.27
-# langchain-community==0.3.31
-# langchain_groq==0.3.8
-# langchain_huggingface==0.3.1
-# faiss_cpu   #facebook database
-# pypdf
-# huggingface_hub
-# flask
-# sentence-transformers==5.1.1
-# python-dotenv
-# bert-score 
-# scikit-learn 
-# matplotlib 
-# seaborn 
-# ragas
-# evaluate
-# datasets
-# pandas
+langchain==0.3.27
+langchain-community==0.3.31
+langchain_groq==0.3.8
+langchain_huggingface==0.3.1
+faiss_cpu
+pypdf
+huggingface_hub
+flask
+sentence-transformers==2.7.0 # Updated for compatibility with CrossEncoder
+python-dotenv
+bert-score 
+scikit-learn 
+matplotlib 
+seaborn 
+ragas
+evaluate
+datasets
+pandas
+# For advanced PDF parsing (conceptual change for research)
+# unstructured[pdf]==0.12.6 # Or a newer version, plus its own dependencies like python-magic-bin on Windows
+# Install external dependencies for unstructured:
+# For Linux/WSL: sudo apt-get install poppler-utils tesseract-ocr
+# For Windows: Install Poppler (e.g., from https://github.com/oschwartz10612/poppler-windows/releases) and Tesseract (e.g., from https://tesseract-ocr.github.io/tessdoc/Installation.html)
+# And set PATH environment variables accordingly.
+
+# For BAAI/bge-reranker-base (if not already covered by sentence-transformers or other deps)
+# transformers # Generally included, but good to be explicit
+# torch # Included
+einops # Required by some HuggingFace models like nomic-embed-text-v1.5
 
 aiohappyeyeballs
 aiohttp

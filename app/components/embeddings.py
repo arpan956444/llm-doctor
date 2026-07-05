@@ -10,7 +10,7 @@ def get_embedding_model(model_name="sentence-transformers/all-MiniLM-L6-v2"):
         device = "cuda" if torch.cuda.is_available() else "cpu"
         logger.info(f"Initializing Huggingface embedding model: {model_name} on {device}")
         
-        model_kwargs = {'device': device}
+        model_kwargs = {'device': device, 'trust_remote_code': True}
         encode_kwargs = {'normalize_embeddings': False}
 
         model = HuggingFaceEmbeddings(

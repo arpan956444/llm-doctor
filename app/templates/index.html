@@ -375,6 +375,10 @@
                         <option value="{{ config }}">{{ config.replace('_', ' ') }}</option>
                     {% endfor %}
                 </select>
+                <select id="answer-style-select" class="form-select form-select-sm me-2" style="width: auto;">
+                    <option value="concise">Concise</option>
+                    <option value="detailed">Detailed</option>
+                </select>
                 <a href="{{ url_for('clear') }}" class="btn btn-sm btn-outline-danger">
                     <i class="fa-solid fa-sync-alt me-1"></i> New Chat
                 </a>
@@ -448,6 +452,7 @@
         const errorContainer = document.getElementById('error-container');
         const sendBtn = document.getElementById('send-button');
         const modelSelect = document.getElementById('model-select');
+        const answerStyleSelect = document.getElementById('answer-style-select'); // NEW: Get answer style select
 
         let messageCounter = {{ messages|length }}; // Initialize with existing messages count
 
@@ -519,6 +524,7 @@
             e.preventDefault();
             const prompt = promptInput.value.trim();
             const config = modelSelect.value;
+            const answerStyle = answerStyleSelect.value; // NEW: Get current answer style
             if (!prompt) return;
 
             errorContainer.innerHTML = '';
@@ -546,7 +552,8 @@
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ 
                         prompt: prompt,
-                        config: config
+                        config: config,
+                        answer_style: answerStyle // Pass selected answer style
                     })
                 });
 

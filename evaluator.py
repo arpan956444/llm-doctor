@@ -125,10 +125,8 @@ def run_evaluation_for_config(config_name):
     if qa_chain is None:
         raise RuntimeError(f"QA Chain for '{config_name}' could not be initialized. Please ensure your vector stores are generated via 'python -m app.components.data_loader' and check your .env for a valid GROQ_API_KEY.")
     
-    reranker = None
-    if config.get("rerank"):
-        print(f"Loading Reranker: {config['reranker_model']}")
-        reranker = CrossEncoder(config["reranker_model"])
+    # Reranker is now integrated into the qa_chain's retriever when config['rerank'] is True
+    # The evaluator will simply use the source_documents returned by the chain.
 
     results_data = []
     for item in test_questions:
@@ -139,15 +137,8 @@ def run_evaluation_for_config(config_name):
         answer = response.get("answer", "")
         source_docs = response.get("source_documents", [])
         
-        # Apply Reranking logic if enabled
-        if reranker and source_docs:
-            doc_texts = [d.page_content for d in source_docs]
-            scores = reranker.predict([(query, doc) for doc in doc_texts])
-            # Re-rank and take top 2
-            ranked_docs = [doc for _, doc in sorted(zip(scores, doc_texts), reverse=True)]
-            context = ranked_docs[:2]
-        else:
-            context = [doc.page_content for doc in source_docs]
+        # Contexts are now the documents returned by the (potentially reranked) retriever
+        context = [doc.page_content for doc in source_docs]
 
         results_data.append({
             "config": config_name,
@@ -184,6 +175,16 @@ def run_evaluation_for_config(config_name):
     )
     
     scores = get_safe_ragas_scores(ragas_res)
+    
+    # --- RESEARCH CONTRIBUTION OPPORTUNITY (Conceptual for now) ---
+    # To evaluate retrieval performance (Precision/Recall/MRR/NDCG),
+    # you would need a more detailed ground_truth dataset that also
+    # specifies which 'contexts' are truly relevant for each question.
+    # For now, you can add placeholders or simple aggregations if you track
+    # individual document scores.
+    # Example: Average relevance score of *all* retrieved docs (before LLM),
+    # then compare with final LLM answer quality.
+    
     return pd.DataFrame(results_data), scores, ragas_res # RETURN RAGAS_RES OBJECT
 
 def run_comparative_evaluation():

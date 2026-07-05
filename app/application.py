@@ -7,9 +7,12 @@ from app.components.retriever import create_qa_chain
 from app.config.config import MODEL_COMBINATIONS
 import webbrowser
 from threading import Timer
+from app.common.logger import get_logger # Import the logger
 app=Flask(__name__)
 app.secret_key= os.urandom(24)  #for handel session expair...24 min
 from markupsafe import Markup #it load html safely
+
+logger = get_logger(__name__) # Initialize logger
 
 def nl2br(value):
     return Markup(value.replace('\n','<br>\n'))
@@ -34,9 +37,13 @@ def chat():
     data = request.get_json()
     user_input = data.get("prompt") if data else None
     config_name = data.get("config", "Setup_Default") if data else "Setup_Default"
+    answer_style = data.get("answer_style", "concise") # NEW: Get answer style from UI
 
     if not user_input:
         return jsonify({"error": "No prompt provided"}), 400
+
+    # Retrieve the configuration for the current request
+    config = MODEL_COMBINATIONS.get(config_name, {})
 
     messages = session["messages"]
     messages.append({"role": "user", "content": user_input})
@@ -59,17 +66,35 @@ def chat():
             "chat_history": chat_history
         })
         
-        result = response.get("answer", "I couldn't find an answer in the provided documents.")
+        result = response.get("answer", "I couldn't find a definitive answer in the provided medical documents for this question. Please provide more context or rephrase your query.")
+        source_docs = response.get("source_documents", [])
         
-        messages.append({"role": "assistant", "content": result})
+        # Calculate average relevance score from source documents, if reranking was used
+        confidence_score = None
+        if source_docs and config.get("rerank"): # Use the 'config' variable that's now defined
+            scores = [doc.metadata.get('relevance_score') for doc in source_docs if 'relevance_score' in doc.metadata]
+            if scores:
+                confidence_score = sum(scores) / len(scores)
+
+        assistant_message_content = result
+        if confidence_score is not None:
+            # Append confidence score to the assistant's message, e.g., for UI display
+            assistant_message_content += f"\n\n(Confidence: {confidence_score:.2f})"
+            if confidence_score < 0.5: # Example threshold for low confidence
+                assistant_message_content += "\n<small class='text-warning'>**Note:** This answer is based on potentially weaker evidence from the documents.</small>"
+
+
+        messages.append({"role": "assistant", "content": assistant_message_content})
         session["messages"] = messages
         
         return jsonify({
             "role": "assistant",
-            "content": result
+            "content": assistant_message_content,
+            "confidence_score": confidence_score
         })
     except Exception as e:
-        return jsonify({"error": str(e)}), 500
+        logger.error(f"Error in chat processing: {e}", exc_info=True)
+        return jsonify({"error": "An unexpected server error occurred. Please try again."}), 500
 
 @app.route('/clear')
 def clear():
