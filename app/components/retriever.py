@@ -1,10 +1,13 @@
 from langchain.chains import ConversationalRetrievalChain
 from langchain_core.prompts import PromptTemplate
+from langchain_core.retrievers import BaseRetriever # NEW IMPORT
+from langchain_core.documents import Document # NEW IMPORT
 from app.components.llm import load_llm
 from app.components.vector_store import load_vector_store
 from app.common.logger import get_logger
 from app.common.custom_exception import CustomException
 from app.components.reranker import get_reranker_model, rerank_documents # NEW IMPORT
+from typing import Any # NEW IMPORT
 logger = get_logger(__name__)
 
 DEFAULT_PROMPT_TEMPLATE = """
@@ -65,79 +68,16 @@ def create_qa_chain(config_name="Setup_Default"):
 
         # If reranking is enabled, retrieve more documents initially
         initial_k = 10 if config.get("rerank") else 2
-        
-        # Define a custom retriever that incorporates reranking
-        class RerankingRetriever:
-            def __init__(self, base_retriever, reranker_model, query_llm, top_n=2):
-                self.base_retriever = base_retriever
-                self.reranker_model = reranker_model
-                self.query_llm = query_llm # LLM to generate query if needed
-                self.top_n = top_n
-
-            def get_relevant_documents(self, query):
-                retrieved_docs = self.base_retriever.get_relevant_documents(query)
-                if self.reranker_model and retrieved_docs:
-                    # rerank_documents returns Documents, potentially with scores as metadata
-                    ranked_docs = rerank_documents(query, retrieved_docs, self.reranker_model, self.top_n)
-                    return ranked_docs
-                return retrieved_docs
-
-            # Adding a method to potentially get documents with scores, if rerank_documents supports it
-            def get_relevant_documents_with_scores(self, query):
-                retrieved_docs_with_scores = self.base_retriever.get_relevant_documents(query) # This actually returns Documents
                 
-                if self.reranker_model and retrieved_docs_with_scores:
-                    # rerank_documents would ideally return documents with scores attached as metadata
-                    # For simplicity, let's assume rerank_documents *can* return scores directly or via metadata.
-                    # As currently implemented, rerank_documents returns Documents.
-                    # We need to modify rerank_documents to return (Document, score) pairs if we want to use scores here.
-                    # For this step, let's modify rerank_documents to add scores to doc.metadata.
-                    
-                    # Temporarily, to demonstrate, we can infer a "score" from the reranked list order
-                    reranked_docs_pure = rerank_documents(query, retrieved_docs_with_scores, self.reranker_model, self.top_n)
-                    # For a real implementation, rerank_documents should return (doc, score)
-                    # Let's mock a score based on presence in the top_n
-                    
-                    # Modify `rerank_documents` to return (Document, score) pairs
-                    pairs = [(query, doc.page_content) for doc in retrieved_docs_with_scores]
-                    if not pairs:
-                        return []
-                    scores = self.reranker_model.predict(pairs)
-                    
-                    # Combine documents with their scores and sort
-                    scored_documents_raw = sorted(zip(scores, retrieved_docs_with_scores), key=lambda x: x[0], reverse=True)
-                    
-                    # Take top_n and attach score to metadata
-                    final_scored_docs = []
-                    for i, (score, doc) in enumerate(scored_documents_raw[:self.top_n]):
-                        doc.metadata['relevance_score'] = float(score) # Attach the score
-                        final_scored_docs.append(doc)
-                    return final_scored_docs
-                
-                # If no reranker or no docs, just return original documents (without scores)
-                return retrieved_docs_with_scores
-                
-
         base_retriever = db.as_retriever(search_kwargs={'k': initial_k})
         
         if config.get("rerank"):
             reranker = get_reranker_model(config["reranker_model"])
-            # The custom_retriever now needs to be able to pass docs *with* scores
-            class CustomRetrievalWithScores(RerankingRetriever):
-                def __init__(self, base_retriever, reranker_model, top_n):
-                    super().__init__(base_retriever, reranker_model, None, top_n) # No query_llm needed here for this simple confidence
-                
-                def get_relevant_documents(self, query):
-                    # This method is what ConversationalRetrievalChain calls.
-                    # It will use the get_relevant_documents_with_scores internally.
-                    return self.get_relevant_documents_with_scores(query)
-
-            custom_retriever_instance = CustomRetrievalWithScores(
+            retriever_to_use = RerankingRetriever(
                 base_retriever=base_retriever, 
                 reranker_model=reranker, 
                 top_n=2 # Final number of documents to pass to LLM after reranking
             )
-            retriever_to_use = custom_retriever_instance
         else:
             retriever_to_use = base_retriever
 
@@ -155,3 +95,42 @@ def create_qa_chain(config_name="Setup_Default"):
         error_message = CustomException(f"Failed to create QA chain for {config_name}", e)
         logger.error(str(error_message))
         return None
+
+# Define a custom retriever that incorporates reranking
+class RerankingRetriever(BaseRetriever):
+    """
+    A custom retriever that first retrieves documents from a base retriever
+    and then reranks them using a CrossEncoder model.
+    """
+    # These are Pydantic fields and must be passed during initialization
+    base_retriever: BaseRetriever
+    reranker_model: Any # CrossEncoder model instance
+    top_n: int = 2
+
+    def __init__(self, base_retriever: BaseRetriever, reranker_model: Any, top_n: int = 2, **kwargs: Any):
+        # Pass all Pydantic fields to the super constructor
+        super().__init__(base_retriever=base_retriever, reranker_model=reranker_model, top_n=top_n, **kwargs)
+
+    def _get_relevant_documents(self, query: str, **kwargs: Any) -> list[Document]:
+        """
+        Retrieve and rerank documents.
+        """
+        # Step 1: Initial retrieval from the base retriever
+        # We call the base retriever's public method here.
+        retrieved_docs = self.base_retriever.get_relevant_documents(query)
+        
+        if self.reranker_model and retrieved_docs:
+            # Step 2: Rerank the retrieved documents
+            # rerank_documents function already adds 'relevance_score' to metadata
+            ranked_docs = rerank_documents(query, retrieved_docs, self.reranker_model, self.top_n)
+            return ranked_docs
+        
+        # If no reranker or no docs, just return the initially retrieved documents (or an empty list)
+        return retrieved_docs
+
+    async def _aget_relevant_documents(self, query: str, **kwargs: Any) -> list[Document]:
+        """
+        Async version of retrieve and rerank documents.
+        """
+        # For simplicity, we can just call the sync version if async isn't strictly needed for the reranker
+        return self._get_relevant_documents(query, **kwargs)

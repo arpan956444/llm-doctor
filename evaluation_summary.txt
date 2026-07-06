@@ -4,22 +4,22 @@
 
 Total Samples Evaluated: 63
 -------------------------------------------
-Average Token F1 Score:  0.3000
-Average BERTScore:       0.8381
+Average Token F1 Score:  0.2305
+Average BERTScore:       0.8135
 
 --- Ragas Metrics (High Level) ---
-faithfulness        : 0.8523
-answer_relevancy    : 0.8664
+faithfulness        : 0.6952
+answer_relevancy    : 0.6745
 
 ===========================================
    PERFORMANCE HIGHLIGHTS (BERTScore)
 ===========================================
-1. Question: What is inflammation?
-   Score: 0.9309
+1. Question: What are the symptoms of Tetanus?
+   Score: 0.9259
 
-2. Question: What characterizes Tinea Versicolor?
-   Score: 0.9308
+2. Question: What are Calcium Channel Blockers?
+   Score: 0.9203
 
-3. Question: What are the symptoms of Tetanus?
-   Score: 0.9286
+3. Question: What characterizes Urticaria (Hives)?
+   Score: 0.9074
 
